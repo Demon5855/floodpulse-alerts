@@ -11,11 +11,6 @@ Modos:
     python alerta_sms.py calibrar   -> barre lluvia 0..25mm por sector
                                        para descubrir el umbral de cada uno
 
-Plantilla .env:
-    TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-    TWILIO_AUTH_TOKEN=tu_auth_token
-    TWILIO_FROM=+17372508034
-    API_BASE=http://localhost:8000
 """
 
 import csv
@@ -27,6 +22,8 @@ from datetime import datetime, timedelta
 
 import requests
 from dotenv import load_dotenv
+
+import envio
 
 load_dotenv()
 
@@ -172,13 +169,12 @@ def procesar(s, riesgo):
     cuerpo = construir_mensaje(sector, riesgo, hora)
     print(f"  ALERTA! {len(cuerpo)} caracteres")
 
+    # Se encola: la entrega la maneja envio.py con conmutacion de proveedor,
+    # reintentos y limite de tasa. Si el proceso muere, la cola sobrevive.
     for destino in s["telefonos"]:
-        try:
-            resultado = enviar_sms(destino, cuerpo)
-        except Exception as e:
-            resultado = f"error: {e}"
-            print(f"  [ERROR] {destino}: {e}")
-        registrar(sector, riesgo, destino, resultado)
+        envio.encolar(sector, riesgo, destino, cuerpo)
+        registrar(sector, riesgo, destino, "encolado")
+    envio.procesar_cola(dry_run=DRY_RUN)
 
     estado[sector]["ultimo_envio"] = datetime.now()
     estado[sector]["en_alerta"] = True
@@ -218,6 +214,8 @@ if __name__ == "__main__":
         modo_calibrar(suscriptores)
         sys.exit(0)
 
+    envio.init_db()
+
     if PROVEEDOR == "gateway" and not DRY_RUN:
         try:
             requests.get(f"{GATEWAY_URL}/health", timeout=5).raise_for_status()
@@ -235,4 +233,6 @@ if __name__ == "__main__":
           f"| rainfall_mm={RAINFALL_MM} | cada {POLL_SEGUNDOS}s\n")
     while True:
         ciclo(suscriptores)
+        envio.procesar_cola(dry_run=DRY_RUN)   # reintenta lo que quedo pendiente
+        print(f"  cola: {envio.resumen()}")
         time.sleep(POLL_SEGUNDOS)

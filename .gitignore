@@ -1,5 +1,6 @@
 # Credenciales y configuracion local - NUNCA subir
 .env
+cola_envios.db
 .env.*
 !.env.example
 
