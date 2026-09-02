@@ -24,6 +24,7 @@ import requests
 from dotenv import load_dotenv
 
 import envio
+from api_suscriptores import telefonos_de
 
 load_dotenv()
 
@@ -66,8 +67,18 @@ estado = {}   # {sector: {"ultimo_envio": datetime, "en_alerta": bool}}
 
 
 def cargar_suscriptores(ruta="suscriptores.json"):
+    """Sectores desde el JSON (configuracion) + telefonos desde la base que
+    administra la API de suscriptores. Se relee en cada ciclo, asi las altas
+    que haga el dashboard entran sin reiniciar el servicio."""
     with open(ruta, encoding="utf-8") as f:
-        return json.load(f)
+        sectores = json.load(f)
+    for s in sectores:
+        registrados = telefonos_de(s["sector"])
+        if registrados:
+            s["telefonos"] = registrados
+        else:
+            s.setdefault("telefonos", [])
+    return sectores
 
 
 def consultar_riesgo(s, rainfall_mm=RAINFALL_MM):
@@ -232,6 +243,7 @@ if __name__ == "__main__":
     print(f"Monitoreando {len(suscriptores)} sectores | DRY_RUN={DRY_RUN} | via {PROVEEDOR} "
           f"| rainfall_mm={RAINFALL_MM} | cada {POLL_SEGUNDOS}s\n")
     while True:
+        suscriptores = cargar_suscriptores()   # recarga altas nuevas
         ciclo(suscriptores)
         envio.procesar_cola(dry_run=DRY_RUN)   # reintenta lo que quedo pendiente
         print(f"  cola: {envio.resumen()}")
