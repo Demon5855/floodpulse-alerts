@@ -1,0 +1,19 @@
+# Credenciales y configuracion local - NUNCA subir
+.env
+.env.*
+!.env.example
+
+# Bitacora de envios (datos de telefonos reales)
+envios.csv
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Editor / SO
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
