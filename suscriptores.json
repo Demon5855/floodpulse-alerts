@@ -1,0 +1,11 @@
+[
+  {
+    "sector": "Malacatos, Loja",
+    "lat": -3.994537,
+    "lon": -79.205415,
+    "umbral": 70,
+    "umbral_salida": 60,
+    "telefonos": ["+593XXXXXXXXX"],
+    "_nota": "Umbral provisional. Correr 'python alerta_sms.py calibrar' contra la API real y ajustar: si el score a 25mm queda por debajo del umbral, el sector nunca alertaria."
+  }
+]
