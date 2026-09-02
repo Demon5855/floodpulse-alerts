@@ -7,5 +7,24 @@
     "umbral_salida": 60,
     "telefonos": ["+593XXXXXXXXX"],
     "_nota": "Umbral provisional. Correr 'python alerta_sms.py calibrar' contra la API real y ajustar: si el score a 25mm queda por debajo del umbral, el sector nunca alertaria."
+  },
+  {
+    "sector": "Ajaví, Ibarra",
+    "lat": 0.35502,
+    "lon": -78.12463,
+    "umbral": 70,
+    "umbral_salida": 60,
+    "fallback_waterway_coords": [[-78.12, 0.35], [-78.13, 0.36]],
+    "telefonos": [],
+    "_nota": "Colector embovedado: no existe en OSM, por eso lleva fallback_waterway_coords (mismo trazado que run_validation.py del backend)."
+  },
+  {
+    "sector": "Guayaquil (Centro)",
+    "lat": -2.1932,
+    "lon": -79.8789,
+    "umbral": 70,
+    "umbral_salida": 60,
+    "telefonos": [],
+    "_nota": "Eventos Yaku 2023 y abril 2025."
   }
 ]
