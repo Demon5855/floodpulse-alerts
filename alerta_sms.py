@@ -96,7 +96,7 @@ def consultar_riesgo(s, rainfall_mm=RAINFALL_MM):
     if r.status_code != 200:
         raise RuntimeError(f"HTTP {r.status_code}: {r.text[:200]}")
     data = r.json()
-    return float(data["risk_score"]), data.get("components", {})
+    return float(data["risk_score"]), data.get("alert_threshold"), data.get("components", {})
 
 
 def construir_mensaje(sector, riesgo, hora):
@@ -164,12 +164,12 @@ def debe_alertar(sector, riesgo, umbral, salida):
     return True
 
 
-def procesar(s, riesgo):
+def procesar(s, riesgo, alert_threshold=None):
     sector = s["sector"]
     # Umbral POR SECTOR: la parte estatica de la formula (TWI + cercania al
     # cauce + impermeabilizacion) ya aporta hasta 60 pts sin llover nada,
     # asi que un 70 fijo no sirve para todos. Calibrar con el modo 'calibrar'.
-    umbral = s.get("umbral", 70)
+    umbral = alert_threshold if alert_threshold is not None else s.get("umbral", 70)
     salida = s.get("umbral_salida", umbral - 10)
 
     if not debe_alertar(sector, riesgo, umbral, salida):
@@ -199,7 +199,7 @@ def modo_calibrar(suscriptores):
         for mm in [0, 5, 10, 15, 20, 25]:
             t0 = time.time()
             try:
-                riesgo, comp = consultar_riesgo(s, rainfall_mm=mm)
+                riesgo, _, comp = consultar_riesgo(s, rainfall_mm=mm)
                 print(f"  lluvia {mm:>2}mm -> riesgo {riesgo:6.2f}  "
                       f"(twi {comp.get('twi_max')}, dist {comp.get('distance_to_channel_m')}m, "
                       f"imperv {comp.get('imperviousness_pct')}%)  [{time.time()-t0:.0f}s]")
@@ -211,11 +211,11 @@ def ciclo(suscriptores):
     for s in suscriptores:
         print(f"[{datetime.now():%H:%M:%S}] {s['sector']}")
         try:
-            riesgo, _ = consultar_riesgo(s)
+            riesgo, alert_threshold, _ = consultar_riesgo(s)
         except Exception as e:
             print(f"  [ERROR] API: {e}")
             continue
-        procesar(s, riesgo)
+        procesar(s, riesgo, alert_threshold)
 
 
 if __name__ == "__main__":
