@@ -38,9 +38,9 @@ API_BASE = os.getenv("API_BASE", "http://localhost:8000")
 TIMEOUT_S = 180           # el endpoint corre Whitebox/TWI por llamada: es LENTO
 POLL_SEGUNDOS = 900       # 15 min. Bajalo a 60 solo para probar.
 
-# rainfall_mm de prueba. OJO: la formula satura en 25mm
-# (config.py -> max_rainfall_mm), pasar 40 o 90 da el MISMO score.
-RAINFALL_MM = 20          # None = que la API traiga la lluvia real (requiere Earth Engine)
+# rainfall_mm de prueba. OJO: la formula satura ahora en 150mm
+# (config.py -> max_rainfall_mm).
+RAINFALL_MM = 60          # None = que la API traiga la lluvia real (requiere Earth Engine)
 
 COOLDOWN_MIN = 30
 BITACORA = "envios.csv"
@@ -96,7 +96,7 @@ def consultar_riesgo(s, rainfall_mm=RAINFALL_MM):
     if r.status_code != 200:
         raise RuntimeError(f"HTTP {r.status_code}: {r.text[:200]}")
     data = r.json()
-    return float(data["risk_score"]), data.get("components", {})
+    return float(data["risk_score"]), data.get("alert_threshold"), data.get("components", {})
 
 
 def construir_mensaje(sector, riesgo, hora):
@@ -164,12 +164,12 @@ def debe_alertar(sector, riesgo, umbral, salida):
     return True
 
 
-def procesar(s, riesgo):
+def procesar(s, riesgo, alert_threshold=None):
     sector = s["sector"]
     # Umbral POR SECTOR: la parte estatica de la formula (TWI + cercania al
     # cauce + impermeabilizacion) ya aporta hasta 60 pts sin llover nada,
     # asi que un 70 fijo no sirve para todos. Calibrar con el modo 'calibrar'.
-    umbral = s.get("umbral", 70)
+    umbral = alert_threshold if alert_threshold is not None else s.get("umbral", 70)
     salida = s.get("umbral_salida", umbral - 10)
 
     if not debe_alertar(sector, riesgo, umbral, salida):
@@ -192,14 +192,14 @@ def procesar(s, riesgo):
 
 
 def modo_calibrar(suscriptores):
-    """Barre lluvia de 0 a 25mm (arriba de 25 la formula se satura)
+    """Barre lluvia de 0 a 150mm (arriba de 150 la formula se satura)
     para ver donde cruza el score de cada sector y fijar su umbral."""
     for s in suscriptores:
         print(f"\n=== {s['sector']} ===")
-        for mm in [0, 5, 10, 15, 20, 25]:
+        for mm in [0, 25, 50, 75, 100, 150]:
             t0 = time.time()
             try:
-                riesgo, comp = consultar_riesgo(s, rainfall_mm=mm)
+                riesgo, _, comp = consultar_riesgo(s, rainfall_mm=mm)
                 print(f"  lluvia {mm:>2}mm -> riesgo {riesgo:6.2f}  "
                       f"(twi {comp.get('twi_max')}, dist {comp.get('distance_to_channel_m')}m, "
                       f"imperv {comp.get('imperviousness_pct')}%)  [{time.time()-t0:.0f}s]")
@@ -211,11 +211,11 @@ def ciclo(suscriptores):
     for s in suscriptores:
         print(f"[{datetime.now():%H:%M:%S}] {s['sector']}")
         try:
-            riesgo, _ = consultar_riesgo(s)
+            riesgo, alert_threshold, _ = consultar_riesgo(s)
         except Exception as e:
             print(f"  [ERROR] API: {e}")
             continue
-        procesar(s, riesgo)
+        procesar(s, riesgo, alert_threshold)
 
 
 if __name__ == "__main__":

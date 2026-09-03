@@ -15,6 +15,18 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
+
+@app.after_request
+def cors(resp):
+    """Permite que el dashboard (localhost:4321) consuma el mock desde el navegador."""
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/health")
+def health():
+    return jsonify({"ok": True, "servicio": "riesgo-mock"})
+
 # Parte estatica simulada por sector (TWI + cauce + impermeabilizacion).
 # En el backend real esto lo calcula del terreno; aca lo fijamos para probar.
 BASE_POR_SECTOR = {
