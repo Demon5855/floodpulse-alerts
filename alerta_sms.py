@@ -46,7 +46,7 @@ COOLDOWN_MIN = 30
 BITACORA = "envios.csv"
 
 # Proveedor de envio: "gateway" (celular con Termux) o "twilio"
-PROVEEDOR = "gateway"
+PROVEEDOR = "brevo"
 
 GATEWAY_URL = os.getenv("GATEWAY_URL", "http://192.168.1.50:8080")
 GATEWAY_TOKEN = os.getenv("GATEWAY_TOKEN")   # sin default: va solo en el .env
