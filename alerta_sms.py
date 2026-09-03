@@ -38,9 +38,9 @@ API_BASE = os.getenv("API_BASE", "http://localhost:8000")
 TIMEOUT_S = 180           # el endpoint corre Whitebox/TWI por llamada: es LENTO
 POLL_SEGUNDOS = 900       # 15 min. Bajalo a 60 solo para probar.
 
-# rainfall_mm de prueba. OJO: la formula satura en 25mm
-# (config.py -> max_rainfall_mm), pasar 40 o 90 da el MISMO score.
-RAINFALL_MM = 20          # None = que la API traiga la lluvia real (requiere Earth Engine)
+# rainfall_mm de prueba. OJO: la formula satura ahora en 150mm
+# (config.py -> max_rainfall_mm).
+RAINFALL_MM = 60          # None = que la API traiga la lluvia real (requiere Earth Engine)
 
 COOLDOWN_MIN = 30
 BITACORA = "envios.csv"
@@ -192,11 +192,11 @@ def procesar(s, riesgo, alert_threshold=None):
 
 
 def modo_calibrar(suscriptores):
-    """Barre lluvia de 0 a 25mm (arriba de 25 la formula se satura)
+    """Barre lluvia de 0 a 150mm (arriba de 150 la formula se satura)
     para ver donde cruza el score de cada sector y fijar su umbral."""
     for s in suscriptores:
         print(f"\n=== {s['sector']} ===")
-        for mm in [0, 5, 10, 15, 20, 25]:
+        for mm in [0, 25, 50, 75, 100, 150]:
             t0 = time.time()
             try:
                 riesgo, _, comp = consultar_riesgo(s, rainfall_mm=mm)
