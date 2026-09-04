@@ -29,7 +29,7 @@ DB = os.getenv("COLA_DB", "cola_envios.db")
 
 # Limite de tasa por proveedor (mensajes por minuto). El gateway local es
 # el mas restringido: es un SIM personal y las operadoras cortan por spam.
-LIMITES = {"vonage": 60, "plivo": 60, "twilio": 60, "gateway": 6}
+LIMITES = {"vonage": 60, "plivo": 60, "brevo": 60, "twilio": 60, "gateway": 6}
 
 _ultimos = {}
 
@@ -64,6 +64,24 @@ def _plivo(destino, cuerpo):
     return r.json().get("message_uuid", ["ok"])[0]
 
 
+def _brevo(destino, cuerpo):
+    r = requests.post(
+        "https://api.brevo.com/v3/transactionalSMS/send",
+        headers={"api-key": os.getenv("BREVO_API_KEY"),
+                 "content-type": "application/json"},
+        json={
+            "sender": os.getenv("BREVO_SENDER", "FloodPulse")[:11],  # 11 chars max
+            "recipient": destino.lstrip("+"),   # Brevo pide el numero sin '+'
+            "content": cuerpo,
+            "type": "transactional",
+        },
+        timeout=30,
+    )
+    if r.status_code not in (200, 201):
+        raise RuntimeError(f"brevo {r.status_code}: {r.text[:150]}")
+    return str(r.json().get("messageId", "ok"))
+
+
 def _twilio(destino, cuerpo):
     from twilio.rest import Client
     cli = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
@@ -85,7 +103,7 @@ def _gateway(destino, cuerpo):
     return "gateway_ok"
 
 
-PROVEEDORES = {"vonage": _vonage, "plivo": _plivo,
+PROVEEDORES = {"vonage": _vonage, "plivo": _plivo, "brevo": _brevo,
                "twilio": _twilio, "gateway": _gateway}
 
 
