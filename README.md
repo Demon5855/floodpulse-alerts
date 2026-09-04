@@ -98,11 +98,11 @@ contra el exceso de mensajes:
   oscila alrededor del umbral.
 - **Cooldown** — mínimo de minutos entre alertas del mismo sector.
 
-El umbral es **por sector**, no global: la parte estática de la fórmula de
-riesgo (pendiente del terreno, cercanía al cauce, impermeabilización) aporta
-una base distinta en cada lugar, y la lluvia satura a los 25 mm. Un umbral
-fijo dejaría sectores que nunca alertan. El modo `calibrar` barre valores de
-lluvia de 0 a 25 mm contra la API real para determinar el umbral de cada uno.
+El umbral (ej. 31.16) se evalúa sobre el puntaje local (`point_risk`). La parte estática
+de la fórmula de riesgo (pendiente del terreno, cercanía al cauce, impermeabilización) aporta
+una base distinta en cada lugar, y la precipitación lo multiplica de forma dinámica.
+El modo `calibrar` barre valores de lluvia de 0 a 150 mm contra la API real para
+determinar con qué nivel de lluvia cada sector cruza su umbral y genera alertas lógicas.
 
 Los envíos pasan por una cola persistente en SQLite: si el proceso muere, los
 mensajes pendientes sobreviven y se reintentan con espera creciente.
