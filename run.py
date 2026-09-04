@@ -24,8 +24,12 @@ def lanzar(cmd, titulo, nueva_ventana=False):
     """Ejecuta un comando. Si nueva_ventana, lo abre aparte y no bloquea."""
     print(f"\n>>> {titulo}\n    {' '.join(cmd)}\n")
     if nueva_ventana and ES_WINDOWS:
-        subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
-        print("    Abierto en una ventana nueva.")
+        # 'cmd /k' deja la ventana abierta aunque el proceso truene o termine,
+        # asi se alcanza a leer el traceback en vez de que se cierre sola.
+        cmd_str = subprocess.list2cmdline(cmd)
+        subprocess.Popen(f'cmd /k "{cmd_str} & echo. & echo (proceso terminado, cerrar con una tecla) & pause>nul"',
+                         creationflags=subprocess.CREATE_NEW_CONSOLE)
+        print("    Abierto en una ventana nueva (se queda abierta si truena).")
         return
     if nueva_ventana:
         subprocess.Popen(cmd)

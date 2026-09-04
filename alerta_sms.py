@@ -32,7 +32,7 @@ load_dotenv()
 # DRY_RUN=True no envia nada, solo imprime. Los SMS gratis son
 # limitados: ponlo en False solo cuando pruebes de verdad.
 # ---------------------------------------------------------------
-DRY_RUN = True
+DRY_RUN = False
 
 API_BASE = os.getenv("API_BASE", "http://localhost:8000")
 TIMEOUT_S = 180           # el endpoint corre Whitebox/TWI por llamada: es LENTO
@@ -45,23 +45,10 @@ RAINFALL_MM = 60          # None = que la API traiga la lluvia real (requiere Ea
 COOLDOWN_MIN = 30
 BITACORA = "envios.csv"
 
-# Proveedor de envio: "gateway" (celular con Termux) o "twilio"
-PROVEEDOR = "brevo"
-
+# GATEWAY_URL se usa solo para el chequeo de salud al arrancar.
+# El envio real (gateway, twilio, brevo, vonage, plivo) vive en envio.py,
+# que resuelve sus propias credenciales por proveedor desde el .env.
 GATEWAY_URL = os.getenv("GATEWAY_URL", "http://192.168.1.50:8080")
-GATEWAY_TOKEN = os.getenv("GATEWAY_TOKEN")   # sin default: va solo en el .env
-
-_twilio = None
-NUMERO_ORIGEN = os.getenv("TWILIO_FROM")
-
-
-def twilio_client():
-    """Se crea solo si de verdad se usa Twilio (asi no estorba si no hay credenciales)."""
-    global _twilio
-    if _twilio is None:
-        from twilio.rest import Client
-        _twilio = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
-    return _twilio
 
 estado = {}   # {sector: {"ultimo_envio": datetime, "en_alerta": bool}}
 
@@ -116,37 +103,6 @@ def registrar(sector, riesgo, destino, resultado):
             w.writerow(["timestamp", "sector", "riesgo", "destino", "resultado"])
         w.writerow([datetime.now().isoformat(timespec="seconds"),
                     sector, riesgo, destino, resultado])
-
-
-def enviar_por_gateway(destino, cuerpo):
-    """Manda el SMS por el chip del celular (Termux). Sin internet: solo LAN/hotspot."""
-    r = requests.post(
-        f"{GATEWAY_URL}/send",
-        json={"token": GATEWAY_TOKEN, "to": destino, "body": cuerpo},
-        timeout=40,
-    )
-    data = r.json()
-    if not data.get("ok"):
-        raise RuntimeError(data.get("error", f"HTTP {r.status_code}"))
-    return "gateway_ok"
-
-
-def enviar_por_twilio(destino, cuerpo):
-    msg = twilio_client().messages.create(body=cuerpo, from_=NUMERO_ORIGEN, to=destino)
-    return msg.sid
-
-
-def enviar_sms(destino, cuerpo):
-    if DRY_RUN:
-        print(f"  [DRY_RUN/{PROVEEDOR}] -> {destino}: {cuerpo}")
-        return "dry_run"
-
-    if PROVEEDOR == "gateway":
-        res = enviar_por_gateway(destino, cuerpo)
-    else:
-        res = enviar_por_twilio(destino, cuerpo)
-    print(f"  [ENVIADO/{PROVEEDOR}] {res} -> {destino}")
-    return res
 
 
 def debe_alertar(sector, riesgo, umbral, salida):
@@ -226,8 +182,9 @@ if __name__ == "__main__":
         sys.exit(0)
 
     envio.init_db()
+    cadena_actual = os.getenv("PROVEEDORES", "gateway")
 
-    if PROVEEDOR == "gateway" and not DRY_RUN:
+    if "gateway" in cadena_actual.split(",") and not DRY_RUN:
         try:
             requests.get(f"{GATEWAY_URL}/health", timeout=5).raise_for_status()
             print(f"Gateway vivo en {GATEWAY_URL}")
@@ -240,7 +197,7 @@ if __name__ == "__main__":
         print(f">>> MODO SIMULADO: lluvia fijada en {RAINFALL_MM}mm. "
               f"Para la demo real poner RAINFALL_MM = None\n")
 
-    print(f"Monitoreando {len(suscriptores)} sectores | DRY_RUN={DRY_RUN} | via {PROVEEDOR} "
+    print(f"Monitoreando {len(suscriptores)} sectores | DRY_RUN={DRY_RUN} | via {cadena_actual} "
           f"| rainfall_mm={RAINFALL_MM} | cada {POLL_SEGUNDOS}s\n")
     while True:
         suscriptores = cargar_suscriptores()   # recarga altas nuevas

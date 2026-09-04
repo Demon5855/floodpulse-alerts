@@ -4,10 +4,10 @@ Persona 2
 
 Resuelve lo que un solo proveedor no resuelve:
 
-- Abstraccion de proveedor: Vonage, Plivo, Twilio o gateway local detras
-  de la misma interfaz. Cambiar de proveedor es una linea del .env.
+- Abstraccion de proveedor: AWS SNS, Twilio o gateway local detras de la
+  misma interfaz. Cambiar de proveedor es una linea del .env.
 - Cadena de conmutacion: si el canal primario falla, cae al siguiente.
-  PROVEEDORES=vonage,gateway  -> intenta cloud y degrada a gateway local.
+  PROVEEDORES=aws,gateway  -> intenta cloud y degrada a gateway local.
 - Cola persistente en SQLite: ningun mensaje se pierde si el proceso muere.
 - Reintentos con espera creciente y limite de tasa por proveedor.
 
@@ -29,57 +29,31 @@ DB = os.getenv("COLA_DB", "cola_envios.db")
 
 # Limite de tasa por proveedor (mensajes por minuto). El gateway local es
 # el mas restringido: es un SIM personal y las operadoras cortan por spam.
-LIMITES = {"vonage": 60, "plivo": 60, "brevo": 60, "twilio": 60, "gateway": 6}
+LIMITES = {"twilio": 60, "aws": 60, "gateway": 6}
 
 _ultimos = {}
 
 
 # ----------------------------------------------------------------- proveedores
 
-def _vonage(destino, cuerpo):
-    r = requests.post("https://rest.nexmo.com/sms/json", data={
-        "api_key": os.getenv("VONAGE_API_KEY"),
-        "api_secret": os.getenv("VONAGE_API_SECRET"),
-        "from": os.getenv("VONAGE_FROM", "FloodPulse"),
-        "to": destino.lstrip("+"),
-        "text": cuerpo,
-    }, timeout=30)
-    r.raise_for_status()
-    msg = r.json()["messages"][0]
-    if msg["status"] != "0":
-        raise RuntimeError(f"vonage {msg['status']}: {msg.get('error-text')}")
-    return msg.get("message-id", "ok")
-
-
-def _plivo(destino, cuerpo):
-    auth_id = os.getenv("PLIVO_AUTH_ID")
-    r = requests.post(
-        f"https://api.plivo.com/v1/Account/{auth_id}/Message/",
-        auth=(auth_id, os.getenv("PLIVO_AUTH_TOKEN")),
-        json={"src": os.getenv("PLIVO_FROM"), "dst": destino, "text": cuerpo},
-        timeout=30,
+def _aws_sns(destino, cuerpo):
+    import boto3
+    cliente = boto3.client(
+        "sns",
+        region_name=os.getenv("AWS_REGION", "us-east-1"),
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     )
-    if r.status_code not in (200, 201, 202):
-        raise RuntimeError(f"plivo {r.status_code}: {r.text[:120]}")
-    return r.json().get("message_uuid", ["ok"])[0]
-
-
-def _brevo(destino, cuerpo):
-    r = requests.post(
-        "https://api.brevo.com/v3/transactionalSMS/send",
-        headers={"api-key": os.getenv("BREVO_API_KEY"),
-                 "content-type": "application/json"},
-        json={
-            "sender": os.getenv("BREVO_SENDER", "FloodPulse")[:11],  # 11 chars max
-            "recipient": destino.lstrip("+"),   # Brevo pide el numero sin '+'
-            "content": cuerpo,
-            "type": "transactional",
+    resp = cliente.publish(
+        PhoneNumber=destino,   # formato E.164 completo, con el '+'
+        Message=cuerpo,
+        MessageAttributes={
+            "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"},
+            "AWS.SNS.SMS.SenderID": {"DataType": "String",
+                                     "StringValue": os.getenv("AWS_SENDER_ID", "FLOODPULSE")},
         },
-        timeout=30,
     )
-    if r.status_code not in (200, 201):
-        raise RuntimeError(f"brevo {r.status_code}: {r.text[:150]}")
-    return str(r.json().get("messageId", "ok"))
+    return resp["MessageId"]
 
 
 def _twilio(destino, cuerpo):
@@ -103,8 +77,7 @@ def _gateway(destino, cuerpo):
     return "gateway_ok"
 
 
-PROVEEDORES = {"vonage": _vonage, "plivo": _plivo, "brevo": _brevo,
-               "twilio": _twilio, "gateway": _gateway}
+PROVEEDORES = {"twilio": _twilio, "aws": _aws_sns, "gateway": _gateway}
 
 
 # ------------------------------------------------------------------- cola
