@@ -4,3 +4,4 @@ flask>=3.0
 twilio>=9.0
 fastapi>=0.110
 uvicorn>=0.29
+boto3>=1.34

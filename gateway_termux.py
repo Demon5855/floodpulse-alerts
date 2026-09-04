@@ -12,8 +12,9 @@ Instalacion en Termux (F-Droid, no Play Store):
     termux-sms-send -n +593XXXXXXXXX "prueba"    # acepta el permiso de SMS
 
 Correr:
+    export GATEWAY_TOKEN="tu-clave"   # la misma que GATEWAY_TOKEN en el .env de la laptop
     python gateway_termux.py
-    (anota la IP que imprime: esa va en el .env de la laptop)
+    (anota la IP que imprime: esa va en GATEWAY_URL del .env de la laptop)
 
 Mantener la pantalla viva:
     termux-wake-lock
@@ -28,7 +29,13 @@ from flask import Flask, jsonify, request
 app = Flask(__name__)
 
 # Clave para que nadie mas en la red del evento mande SMS con tu chip.
-TOKEN = "[Inserte Contraseña]"
+# En Termux, ANTES de correr este script:  export GATEWAY_TOKEN="tu-clave"
+# Debe ser la MISMA clave que GATEWAY_TOKEN en el .env de la laptop.
+TOKEN = os.environ.get("GATEWAY_TOKEN")
+if not TOKEN:
+    raise SystemExit(
+        "Falta GATEWAY_TOKEN. Corre primero: export GATEWAY_TOKEN=\"tu-clave\""
+    )
 
 PUERTO = 8080
 

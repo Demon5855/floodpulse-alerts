@@ -33,8 +33,8 @@ puede degradarse a infraestructura local cuando la conectividad falla.
                                         └────┬───────┬────┘
                                    cloud     │       │    local
                               ┌──────────────▼─┐ ┌───▼──────────────┐
-                              │ Vonage / Plivo │ │ Gateway Android  │
-                              │    / Twilio    │ │   (Termux)       │
+                              │  AWS SNS /     │ │ Gateway Android  │
+                              │   Twilio       │ │   (Termux)       │
                               └────────────────┘ └──────────────────┘
 
 ## Por qué SMS
@@ -54,8 +54,8 @@ la zona. Una junta parroquial puede operarlo sin contrato ni internet.
 La cadena se configura en `PROVEEDORES` y se recorre en orden hasta que un
 canal acepte el mensaje:
 
-    PROVEEDORES=vonage,gateway    # cloud primario, degrada a local
-    PROVEEDORES=gateway           # solo local (demo sin internet)
+    PROVEEDORES=aws,gateway    # cloud primario, degrada a local
+    PROVEEDORES=gateway        # solo local (demo sin internet)
 
 ### Límites conocidos
 
@@ -73,6 +73,13 @@ Se documentan explícitamente porque condicionan cualquier despliegue real:
   broadcast*, que solo puede activar la operadora o el Estado. Este componente
   demuestra el mecanismo; el canal definitivo corresponde a la institución
   que tenga la potestad legal.
+- **AWS SNS opera en sandbox.** La cuenta de AWS usada tiene un Sender ID
+  (`FLOODPULSE`) aprobado para Ecuador sin necesidad de registro, pero
+  mientras la cuenta esté en sandbox solo puede enviar a números de destino
+  verificados manualmente (`verificar_destino_aws.py`), con un límite de
+  gasto mensual de $1 USD. Salir del sandbox requiere una solicitud a
+  soporte de AWS. Por eso el canal local sigue siendo el modo principal
+  para la demo, no un respaldo secundario.
 
 ---
 

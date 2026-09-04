@@ -12,14 +12,20 @@ if (-not (Test-Path ".\venv")) { python -m venv venv }
 & .\venv\Scripts\python.exe -m pip install -r requirements.txt
 
 if (-not (Test-Path ".\.env")) {
-    # .env de desarrollo: se parte de .env.example y se rellenan los placeholders.
+    # .env de desarrollo: se parte de .env.example y se generan claves
+    # aleatorias (nunca fijas, porque este script es publico en el repo).
     # API_KEY debe coincidir con PUBLIC_SUBS_API_KEY en floodpulse-frontend/.env
+    $gatewayToken = [guid]::NewGuid().ToString("N").Substring(0, 16)
+    $apiKey = [guid]::NewGuid().ToString("N").Substring(0, 16)
+
     (Get-Content .env.example) `
-        -replace 'http://\[TERMUX_IP_ADDRESS\]', 'http://192.168.1.50:8080' `
-        -replace '\[Inserte Contrase.a\]', 'floodpulse-gateway-demo' `
-        -replace 'pon-aqui-una-clave-compartida-con-el-dashboard', 'floodpulse-dev-key' |
+        -replace 'GATEWAY_TOKEN=.*', "GATEWAY_TOKEN=$gatewayToken" `
+        -replace 'API_KEY=.*', "API_KEY=$apiKey" |
         Set-Content .env -Encoding UTF8
-    Write-Host "Se creo .env (API_KEY=floodpulse-dev-key). Ajusta GATEWAY_URL/GATEWAY_TOKEN cuando tengas el celular con Termux." -ForegroundColor Yellow
+
+    Write-Host "Se creo .env con GATEWAY_TOKEN y API_KEY generados al azar." -ForegroundColor Yellow
+    Write-Host "  GATEWAY_TOKEN=$gatewayToken  (usar el mismo valor con 'export GATEWAY_TOKEN=...' en Termux)" -ForegroundColor Yellow
+    Write-Host "Ajusta GATEWAY_URL cuando tengas la IP del celular con Termux corriendo." -ForegroundColor Yellow
 }
 
 Write-Host ""
