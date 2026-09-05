@@ -85,6 +85,10 @@ class SuscriptorOut(BaseModel):
     sector: str
     alta: str
 
+class TestAlertIn(BaseModel):
+    sector: str
+    riesgo: float
+
 
 # --------------------------------------------------------------------- datos
 
@@ -185,6 +189,27 @@ def baja(telefono: str = Query(..., description="+593XXXXXXXXX"),
     if not afectados:
         raise HTTPException(404, "no estaba registrado")
     return {"ok": True, "baja": enmascarar(telefono), "sector": sector}
+
+
+@app.post("/test_alert", tags=["suscriptores"], dependencies=[Depends(verificar_clave)])
+def test_alert(alert: TestAlertIn):
+    """Encola y dispara un SMS de prueba para el sector, llamado desde el frontend."""
+    import envio
+    telefonos = telefonos_de(alert.sector)
+    if not telefonos:
+        raise HTTPException(404, "No hay suscriptores en este sector para alertar.")
+    
+    for t in telefonos:
+        cuerpo = f"🚨 SIMULACION FLOODPULSE: Riesgo critico ({alert.riesgo:.1f}) en {alert.sector}. SMS de prueba desde el Dashboard."
+        envio.encolar(alert.sector, alert.riesgo, t, cuerpo)
+        
+    try:
+        # Procesamos la cola de envio inmediatamente, usando los proveedores del .env (o gateway)
+        envio.procesar_cola(dry_run=False)
+    except Exception as e:
+        print(f"Error procesando cola desde test_alert: {e}")
+        
+    return {"ok": True, "enviados": len(telefonos)}
 
 
 init_db()
